@@ -96,7 +96,7 @@ class Api extends REST_Controller
 //        print_r(var_dump($this->post()));die;
         $userid = $this->post('userid');
         $taskname = $this->post('taskname');
-        $deadline = date('Y-m-d H:i:s',strtotime($this->post('deadline')));
+        $deadline = $this->post('deadline');
 
         if (!$taskname || !$userid || !$deadline) {
             $this->response("Enter taskname and userid to add", 400);
