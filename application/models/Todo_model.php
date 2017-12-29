@@ -26,10 +26,12 @@ Class Todo_model extends CI_Model
         }
 	}
 
-	public function add_task($taskname,$userid, $deadline)
+	public function add_task($taskname,$userid, $deadline, $start_time)
     {
 
-        if($this->db->insert('task',array('task'=>$taskname, 'userid'=>$userid, 'deadline'=>$deadline)))
+        if($this->db->insert('task',array('task'=>$taskname, 'userid'=>$userid, 'deadline'=>$deadline,
+                                'start_time'=>$start_time
+        )))
         {
             return true;
         }else{
@@ -71,13 +73,5 @@ Class Todo_model extends CI_Model
         }
     }
 
-    public function get_alltasks()
-    {
-        $this->db->select('*');
-        $this->db->from('task');
-        $query = $this->db->get();
-        return $query->result_array();
-
-    }
 
 }

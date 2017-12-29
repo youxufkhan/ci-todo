@@ -1,6 +1,7 @@
 <?php
-
+require_once APPPATH . '/controllers/libraries/JWT.php';
 require(APPPATH.'/libraries/REST_Controller.php');
+use \Firebase\JWT\JWT;
 
 class Api extends REST_Controller
 {
@@ -10,7 +11,7 @@ class Api extends REST_Controller
     {
         parent::__construct();
         header("Access-Control-Allow-Origin: *");
-        header('Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Access-Control-Allow-Origin');
+        header('Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Access-Control-Allow-Origin, authorization');
         header('Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE');
         $method = $_SERVER['REQUEST_METHOD'];
         if($method == "OPTIONS") {
@@ -27,16 +28,20 @@ class Api extends REST_Controller
         if (!$username) {
 
             $this->response("No username specified", 400);
-
             exit;
         }
+        $result = [];
+        $id = $this->user_model->get_userid($username)[0]['id'];
 
-        $result = $this->user_model->get_userid($username);
-
-        if ($result) {
+        if ($id) {
+            $result['id']=$id;
+            $key = "example_key";
+            $token = array(
+                "id"=> $result['id']
+            );
+            $result['token'] = JWT::encode($token, $key);
 
             $this->response($result, 200);
-
             exit;
         } else {
 
@@ -48,14 +53,22 @@ class Api extends REST_Controller
 
     function get_usertasks_get()
     {
+
         $userid = $this->get('userid');
+        $headers = $this->input->request_headers();
 
-        $result = $this->todo_model->get_usertasks($userid);
+        if(!$this->verifyToken($userid,$headers["Authorization"]))
+        {
+            $this->response("You are not authorized", 401);
+        }
+        else {
+            $result = $this->todo_model->get_usertasks($userid);
 
-        if ($result>0) {
-            $this->response($result, 200);
-        } else {
-            $this->response("No record found", 404);
+            if ($result > 0) {
+                $this->response($result, 200);
+            } else {
+                $this->response("No record found", 404);
+            }
         }
     }
 
@@ -77,8 +90,9 @@ class Api extends REST_Controller
     {
         $username = $this->post('username');
 
+
         if (!$username) {
-            $this->response("Enter username", 400);
+            $this->response("Enter username and password", 400);
         } else
 
             $result = $this->user_model->create_user($username);
@@ -93,40 +107,56 @@ class Api extends REST_Controller
 
     function add_task_post()
     {
-//        print_r(var_dump($this->post()));die;
         $userid = $this->post('userid');
         $taskname = $this->post('taskname');
         $deadline = $this->post('deadline');
+        $start_time = $this->post('start_time');
+        $headers = $this->input->request_headers();
 
-        if (!$taskname || !$userid || !$deadline) {
-            $this->response("Enter taskname and userid to add", 400);
-        } else
+        if(!$this->verifyToken($userid,$headers["Authorization"]))
+        {
+            $this->response("You are not authorized", 401);
+        }
+        else {
 
-            $result = $this->todo_model->add_task($taskname, $userid, $deadline);
+            if (!$taskname || !$userid || !$deadline || !$start_time) {
+                $this->response("Enter taskname and userid to add", 400);
+            } else
 
-        if ($result === 0) {
-            $this->response("Task could not be added. Try again.", 404);
-        } else {
-            $this->response("success", 200);
+                $result = $this->todo_model->add_task($taskname, $userid, $deadline, $start_time);
+
+            if ($result === 0) {
+                $this->response("Task could not be added. Try again.", 404);
+            } else {
+                $this->response("success", 200);
+            }
         }
     }
 
 
     function update_task_put()
     {
+        $userid = $this->put('userid');
         $taskname = $this->put('taskname');
         $taskid = $this->put('taskid');
+        $headers = $this->input->request_headers();
 
-        if (!$taskname || !$taskid) {
-            $this->response("Enter taskname and taskid to update", 400);
-        } else
+        if(!$this->verifyToken($userid,$headers["Authorization"]))
+        {
+            $this->response("You are not authorized", 401);
+        }
+        else {
+            if (!$taskname || !$taskid) {
+                $this->response("Enter taskname and taskid to update", 400);
+            } else
 
-            $result = $this->todo_model->update_task($taskname, $taskid);
+                $result = $this->todo_model->update_task($taskname, $taskid);
 
-        if ($result === 0) {
-            $this->response("Task could not be updated. Try again.", 404);
-        } else {
-            $this->response("success", 200);
+            if ($result === 0) {
+                $this->response("Task could not be updated. Try again.", 404);
+            } else {
+                $this->response("success", 200);
+            }
         }
     }
 
@@ -137,35 +167,41 @@ class Api extends REST_Controller
         header("Access-Control-Allow-Origin: *");
 
         $taskid = $this->query('taskid');
+        $userid = $this->query('userid');
+        $headers = $this->input->request_headers();
 
-        if (!$taskid) {
-
-            $this->response("Parameter missing", 404);
-
+        if(!$this->verifyToken($userid,$headers["Authorization"]))
+        {
+            $this->response("You are not authorized", 401);
         }
+        else {
+            if (!$taskid) {
 
-        if ($this->todo_model->del_task($taskid)) {
+                $this->response("Parameter missing", 404);
 
-            $this->response("success", 200);
-
-        } else {
-
-            $this->response("Failed", 400);
-
-        }
-
-    }
-
-    function get_alltasks_get()
-    {
-        header("Access-Control-Allow-Origin: *");
-        $result = $this->todo_model->get_alltasks();
-
-            if ($result) {
-                $this->response($result, 200);
-            } else {
-                $this->response("No record found", 404);
             }
+
+            if ($this->todo_model->del_task($taskid)) {
+
+                $this->response("success", 200);
+
+            } else {
+
+                $this->response("Failed", 400);
+
+            }
+        }
     }
 
+
+    function verifyToken($userid,$Token)
+    {
+        $key = "example_key";
+        $decoded = JWT::decode($Token , $key, array('HS256'));
+        $decoded_array = (array) $decoded;
+        if($decoded_array['id']==$userid){
+            return true;
+        }else{
+            return false;}
+    }
 }

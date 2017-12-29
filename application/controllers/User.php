@@ -31,4 +31,6 @@ class User extends CI_Controller {
 	    $this->load->view('todo_view',$data);
 
 	}
+
+	public
 }
