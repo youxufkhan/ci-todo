@@ -21,6 +21,23 @@ class Api extends REST_Controller
         $this->load->model('todo_model');
     }
 
+    function login_user_post(){
+        $username = $this->post('username');
+        $password = $this->post('password');
+
+        $passwordhash = $this->user_model->get_pass($username)[0]['password'];
+
+
+        if (password_verify($password ,$passwordhash)) {
+            $result['status']=true;
+            $this->response($result,200);
+        } else {
+            $this->response("Wrong Username or Password",404);
+        }
+
+    }
+
+
     function get_userid_get()
     {
         $username = $this->get('username');
@@ -89,19 +106,25 @@ class Api extends REST_Controller
     function create_user_post()
     {
         $username = $this->post('username');
+        $password = $this->post('password');
+        $password = password_hash($password, PASSWORD_DEFAULT);
 
+        $id = $this->user_model->get_userid($username)[0]['id'];
 
-        if (!$username) {
-            $this->response("Enter username and password", 400);
-        } else
+        if(!$id) {
+            if (!$username) {
+                $this->response("Enter username and password", 400);
+            } else
 
-            $result = $this->user_model->create_user($username);
+                $result = $this->user_model->create_user($username,$password);
 
-        if ($result === 0) {
-            $this->response("Username could not be added. Try again.", 404);
-        } else {
-            $this->response("success", 200);
+            if ($result === 0) {
+                $this->response("Username could not be added. Try again.", 404);
+            } else {
+                $this->response("success", 200);
+            }
         }
+            $this->response("Username already exists",404);
     }
 
 
@@ -204,4 +227,5 @@ class Api extends REST_Controller
         }else{
             return false;}
     }
+
 }
